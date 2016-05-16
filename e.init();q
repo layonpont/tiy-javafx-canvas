@@ -1,0 +1,207 @@
+[1mdiff --git a/Tests/sample/ToDoDatabaseTest.java b/Tests/sample/ToDoDatabaseTest.java[m
+[1mindex f24212e..1551c2b 100644[m
+[1m--- a/Tests/sample/ToDoDatabaseTest.java[m
+[1m+++ b/Tests/sample/ToDoDatabaseTest.java[m
+[36m@@ -90,6 +90,16 @@[m [mpublic class ToDoDatabaseTest {[m
+     @Test[m
+     public void testToggleToDo() throws Exception{[m
+         Connection conn = DriverManager.getConnection("jdbc:h2:./main");[m
+[32m+[m[32m        String todoText = "UnitTest-ToDo";[m
+[32m+[m[32m        todoDatabase.insertToDo(conn, todoText);[m
+[32m+[m[32m        PreparedStatement stmt = conn.prepareStatement("SELECT * FROM todos WHERE text='UnitTest-ToDo'");[m
+[32m+[m[32m        ResultSet results = stmt.executeQuery();[m
+[32m+[m[32m        results.next();[m
+[32m+[m[32m        todoDatabase.toggleToDo(conn,results.getInt("id"));[m
+[32m+[m[32m        System.out.println("is_done:" + results.getString("is_done"));[m
+[32m+[m[32m        boolean expectedValue = !results.getBoolean("is_done");[m
+[32m+[m[32m        assertNotEquals(expectedValue, results.getBoolean("is_done"));[m
+[32m+[m
+ [m
+     }[m
+ }[m
+\ No newline at end of file[m
+[1mdiff --git a/main.mv.db b/main.mv.db[m
+[1mindex a03a6e6..d94ebb3 100644[m
+Binary files a/main.mv.db and b/main.mv.db differ
+[1mdiff --git a/src/sample/Controller.java b/src/sample/Controller.java[m
+[1mindex 45a1ef1..94fc68f 100644[m
+[1m--- a/src/sample/Controller.java[m
+[1m+++ b/src/sample/Controller.java[m
+[36m@@ -13,6 +13,8 @@[m [mimport java.io.File;[m
+ import java.io.FileWriter;[m
+ import java.io.IOException;[m
+ import java.net.URL;[m
+[32m+[m[32mimport java.sql.Connection;[m
+[32m+[m[32mimport java.sql.SQLException;[m
+ import java.util.ArrayList;[m
+ import java.util.Collections;[m
+ import java.util.ResourceBundle;[m
+[36m@@ -28,29 +30,37 @@[m [mpublic class Controller implements Initializable {[m
+     ObservableList<ToDoItem> todoItems = FXCollections.observableArrayList();[m
+     ArrayList<ToDoItem> savableList = new ArrayList<ToDoItem>();[m
+     String fileName = "todos.json";[m
+[32m+[m[32m    ToDoDatabase toDoDatabase = new ToDoDatabase();[m
+ [m
+     public String username;[m
+ [m
+     @Override[m
+[31m-    public void initialize(URL location, ResourceBundle resources) {[m
+[32m+[m[32m    public void initialize(URL location, ResourceBundle resources)  {[m
+ [m
+[31m-        System.out.print("Please enter your name: ");[m
+[31m-        Scanner inputScanner = new Scanner(System.in);[m
+[31m-        username = inputScanner.nextLine();[m
+[32m+[m[32m        try {[m
+[32m+[m[32m            Connection conn = toDoDatabase.init();[m
+[32m+[m[32m            ArrayList<ToDoItem> todos = toDoDatabase.selectToDos(conn);[m
+[32m+[m[32m           // toDoDatabase.insertToDo(conn, "hi");[m
+[32m+[m[32m            toDoDatabase.deleteToDo(conn, "hi");[m
+ [m
+[31m-        if (username != null && !username.isEmpty()) {[m
+[31m-            fileName = username + ".json";[m
+[31m-        }[m
+ [m
+[31m-        System.out.println("Checking existing list ...");[m
+[31m-        ToDoItemList retrievedList = retrieveList();[m
+[31m-        if (retrievedList != null) {[m
+[31m-            for (ToDoItem item : retrievedList.todoItems) {[m
+[31m-                todoItems.add(item);[m
+[31m-            }[m
+[32m+[m
+[32m+[m[32m                System.out.println("Running todo items not Null");[m
+[32m+[m[32m                for (ToDoItem item : todos) {[m
+[32m+[m[32m                    todoItems.add(item);[m
+[32m+[m[32m                }[m
+[32m+[m
+[32m+[m
+[32m+[m
+[32m+[m[32m        }catch(SQLException exception){[m
+[32m+[m
+         }[m
+ [m
+[32m+[m
+         todoList.setItems(todoItems);[m
+[32m+[m
+[32m+[m
+[32m+[m
+     }[m
+ [m
+     public void saveToDoList() {[m
+[36m@@ -65,9 +75,16 @@[m [mpublic class Controller implements Initializable {[m
+     }[m
+ [m
+     public void addItem() {[m
+[31m-        System.out.println("Adding item ...");[m
+[31m-        todoItems.add(new ToDoItem(todoText.getText()));[m
+[31m-        todoText.setText("");[m
+[32m+[m[32m       try {[m
+[32m+[m[32m           Connection conn = toDoDatabase.init();[m
+[32m+[m[32m           System.out.println("Adding item ...");[m
+[32m+[m[32m           todoItems.add(new ToDoItem(todoText.getText()));[m
+[32m+[m[32m           todoText.setText("");[m
+[32m+[m[32m           toDoDatabase.insertToDo(conn, todoText.getText());[m
+[32m+[m[32m       }catch (SQLException e){[m
+[32m+[m
+[32m+[m[32m       }[m
+[32m+[m
+     }[m
+ [m
+     public void removeItem() {[m
+[36m@@ -124,5 +141,40 @@[m [mpublic class Controller implements Initializable {[m
+             return null;[m
+         }[m
+     }[m
+[32m+[m
+[32m+[m[32m    public void askForName(){[m
+[32m+[m[32m        System.out.print("Please enter your name: ");[m
+[32m+[m[32m        Scanner inputScanner = new Scanner(System.in);[m
+[32m+[m[32m        username = inputScanner.nextLine();[m
+[32m+[m
+[32m+[m[32m        if (username != null && !username.isEmpty()) {[m
+[32m+[m[32m            fileName = username + ".json";[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public void retrieveFile(){[m
+[32m+[m[32m        System.out.println("Checking existing list ...");[m
+[32m+[m[32m        ToDoItemList retrievedList = retrieveList();[m
+[32m+[m[32m        if (retrievedList != null) {[m
+[32m+[m[32m            for (ToDoItem item : retrievedList.todoItems) {[m
+[32m+[m[32m                todoItems.add(item);[m
+[32m+[m[32m            }[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    public void deleteTodo(){[m
+[32m+[m[32m        System.out.println("Deleting to do items");[m
+[32m+[m[32m        try {[m
+[32m+[m[32m            Connection conn = toDoDatabase.init();[m
+[32m+[m[32m            toDoDatabase.deleteToDo(conn, "");[m
+[32m+[m
+[32m+[m[32m        }catch(SQLException e){[m
+[32m+[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m
+[32m+[m[32m    }[m
+     [m
+ }[m
+[1mdiff --git a/src/sample/SampleFXMLApp.java b/src/sample/SampleFXMLApp.java[m
+[1mindex de6b703..a03b3a9 100644[m
+[1m--- a/src/sample/SampleFXMLApp.java[m
+[1m+++ b/src/sample/SampleFXMLApp.java[m
+[36m@@ -36,8 +36,8 @@[m [mpublic class SampleFXMLApp extends Application {[m
+ [m
+         primaryStage.setOnCloseRequest(new EventHandler<WindowEvent>() {[m
+             public void handle(WindowEvent we) {[m
+[31m-                System.out.println("Stage is closing -> saving the todo list! ");[m
+[31m-                controller.saveList();[m
+[32m+[m[32m//                System.out.println("Stage is closing -> saving the todo list! ");[m
+[32m+[m[32m//                controller.saveList();[m
+             }[m
+         });[m
+ [m
+[1mdiff --git a/src/sample/ToDoDatabase.java b/src/sample/ToDoDatabase.java[m
+[1mindex 9136ec7..41f0fd9 100644[m
+[1m--- a/src/sample/ToDoDatabase.java[m
+[1m+++ b/src/sample/ToDoDatabase.java[m
+[36m@@ -12,12 +12,13 @@[m [mpublic class ToDoDatabase {[m
+     public final static String DB_URL = "jdbc:h2:./main";[m
+ [m
+ [m
+[31m-    public void init() throws SQLException {[m
+[32m+[m[32m    public Connection init() throws SQLException {[m
+         // we'll add some implementation code here once we have a unit test method for it[m
+         Server.createWebServer().start();[m
+         Connection conn = DriverManager.getConnection(DB_URL);[m
+         Statement stmt = conn.createStatement();[m
+         stmt.execute("CREATE TABLE IF NOT EXISTS todos (id IDENTITY, text VARCHAR, is_done BOOLEAN)");[m
+[32m+[m[32m        return conn;[m
+     }[m
+ [m
+     public void insertToDo(Connection conn, String text) throws SQLException {[m
+[1mdiff --git a/src/sample/todolist.fxml b/src/sample/todolist.fxml[m
+[1mindex a3f737e..05f131c 100644[m
+[1m--- a/src/sample/todolist.fxml[m
+[1m+++ b/src/sample/todolist.fxml[m
+[36m@@ -13,6 +13,7 @@[m
+       <ToolBar prefHeight="40.0" prefWidth="200.0">[m
+         <items>[m
+           <Button mnemonicParsing="false" onAction="#saveToDoList" text="Save ToDos" />[m
+[32m+[m[32m            <Button minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" onAction="#deleteTodo" text="delete" />[m
+         </items>[m
+       </ToolBar>[m
+       <HBox prefHeight="12.0" prefWidth="600.0" VBox.vgrow="NEVER">[m
+[1mdiff --git a/todos.json b/todos.json[m
+[1mindex 0b5d402..b7bf969 100644[m
+[1m--- a/todos.json[m
+[1m+++ b/todos.json[m
+[36m@@ -1 +1 @@[m
+[31m-{"todoItems":[{"isDone":false,"text":"One"},{"isDone":false,"text":"Two"},{"isDone":false,"text":"Three"}]}[m
+\ No newline at end of file[m
+[32m+[m[32m{"todoItems":[{"id":15,"isDone":true,"text":"hi"},{"id":47,"isDone":true,"text":"hi"},{"id":79,"isDone":true,"text":"hi"},{"id":111,"isDone":true,"text":"hi"},{"id":143,"isDone":true,"text":"hi"},{"id":175,"isDone":true,"text":"UnitTest-ToDo"},{"id":176,"isDone":true,"text":"UnitTest-ToDo"},{"id":177,"isDone":true,"text":"hi"},{"id":209,"isDone":true,"text":"hi"}]}[m
+\ No newline at end of file[m
+warning: LF will be replaced by CRLF in src/sample/todolist.fxml.
+The file will have its original line endings in your working directory.
