@@ -12,6 +12,16 @@ import javafx.stage.WindowEvent;
 
 import java.util.Scanner;
 
+import javafx.application.Application;
+import javafx.event.EventHandler;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
+import javafx.stage.WindowEvent;
+
+import java.util.Scanner;
+
 public class SampleFXMLApp extends Application {
 
     public static void main(String[] args) {
@@ -36,8 +46,11 @@ public class SampleFXMLApp extends Application {
 
         primaryStage.setOnCloseRequest(new EventHandler<WindowEvent>() {
             public void handle(WindowEvent we) {
-//                System.out.println("Stage is closing -> saving the todo list! ");
-//                controller.saveList();
+
+//                controller.saveListToJson();
+
+                System.out.println("Stage is closing! ");
+
             }
         });
 

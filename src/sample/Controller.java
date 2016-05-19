@@ -13,11 +13,8 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URL;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.ResourceBundle;
 import java.util.Scanner;
 
@@ -28,107 +25,184 @@ public class Controller implements Initializable {
     @FXML
     TextField todoText;
 
+
+    int selectedItemIndex = -1;
+
     ObservableList<ToDoItem> todoItems = FXCollections.observableArrayList();
     ArrayList<ToDoItem> savableList = new ArrayList<ToDoItem>();
     String fileName = "todos.json";
-    ToDoDatabase toDoDatabase = new ToDoDatabase();
+
+    ToDoDatabase toDoDatabase;
+    int userID;
+
 
     public String username;
 
+    public void setSelectedItemIndex(int selectedItemIndex) {
+        this.selectedItemIndex = selectedItemIndex;
+    }
+
     @Override
-    public void initialize(URL location, ResourceBundle resources)  {
+    public void initialize(URL location, ResourceBundle resources) {
+        userNameStart();
+    }
 
+
+    public void userNameStart() {
         try {
-            Connection conn = toDoDatabase.init();
-            ArrayList<ToDoItem> todos = toDoDatabase.selectToDos(conn);
+            toDoDatabase = new ToDoDatabase();
+            Connection conn = DriverManager.getConnection("jdbc:h2:./main");
+            toDoDatabase.init();
 
-           // toDoDatabase.insertToDo(conn, "hi");
-//            toDoDatabase.deleteToDo(conn, "hi");
+            System.out.println("Pick a number from below to begin");
+            System.out.println("");
+            System.out.println("1.New User ");
+            System.out.println("2.Existing User");
+            System.out.println("");
+            Scanner userScanner = new Scanner(System.in);
+            String userResponse = userScanner.nextLine();
 
+            if (userResponse.equalsIgnoreCase("2")) {
+                System.out.print("Enter email address: ");
+                String username = userScanner.nextLine();
+                userID = toDoDatabase.selectUser(conn, username).id;
 
-
-                System.out.println("Running todo items not Null");
+                System.out.println("Checking existing list ...");
+                ArrayList<ToDoItem> todos = toDoDatabase.selectToDosForUser(conn, userID);
                 for (ToDoItem item : todos) {
                     todoItems.add(item);
                 }
+                if (todoList != null) {
+                    todoList.setItems(todoItems);
+                }
+            } else if (userResponse.equalsIgnoreCase("1")) {
+                System.out.println("");
+                System.out.println("Welcome New User!");
+                System.out.print("Enter Email Address: ");
+                String username = userScanner.nextLine();
+                System.out.print("Enter First and Last Name: ");
+                String fullname = userScanner.nextLine();
+                userID = toDoDatabase.insertUser(conn, username, fullname);
 
+                System.out.println("Adding User list ...");
+                ArrayList<ToDoItem> todos = toDoDatabase.selectToDosForUser(conn, userID);
+                for (ToDoItem item : todos) {
+                    todoItems.add(item);
+                }
+                if (todoList != null) {
+                    todoList.setItems(todoItems);
+                }
+            } else {
 
+                System.out.println("ERROR: Choose a number from the list above");
+            }
 
-        }catch(SQLException exception){
+        } catch (SQLException e) {
 
         }
-
-
-        todoList.setItems(todoItems);
-
-
-
     }
 
-    public void saveToDoList() {
+//    public void startWithUserNameToJson() {
+//
+//        System.out.print("Please enter your name: ");
+//        Scanner inputScanner = new Scanner(System.in);
+//        username = inputScanner.nextLine();
+//
+//        if (username != null && !username.isEmpty()) {
+//            fileName = username + ".json";
+//        }
+//
+//        System.out.println("Checking existing list ...");
+//        ToDoItemList retrievedList = retrieveJsonList();
+//        if (retrievedList != null) {
+//            for (ToDoItem item : retrievedList.todoItems) {
+//                todoItems.add(item);
+//            }
+//        }
+//        todoList.setItems(todoItems);
+//    }
 
+    public void saveToDoList() {
         if (todoItems != null && todoItems.size() > 0) {
             System.out.println("Saving " + todoItems.size() + " items in the list");
             savableList = new ArrayList<ToDoItem>(todoItems);
-
             System.out.println("There are " + savableList.size() + " items in my savable list");
-
-
+            saveListToJson();
         } else {
             System.out.println("No items in the ToDo List");
         }
     }
 
     public void addItem() {
-     try {
-        Connection conn = DriverManager.getConnection("jdbc:h2:./main");
-           System.out.println("Adding item ...");
-         toDoDatabase.insertToDo(conn, todoText.getText());
-           todoItems.add(new ToDoItem(todoText.getText()));
-           todoText.setText("");
+        try {
+            Connection conn = DriverManager.getConnection("jdbc:h2:./main");
+//            int userID = toDoDatabase.selectUser(conn, username).id;
+            System.out.println("Adding item ...");
+            todoItems.add(new ToDoItem(todoText.getText()));
+//            toDoDatabase.insertToDo(conn, todoText.getText());
+            toDoDatabase.insertToDoWithUserID(conn, todoText.getText(), userID);
+            todoText.setText("");
+        } catch(SQLException e){
 
-      }catch (SQLException e){
-//
-      }
+        }
+    }
 
+    public void addItemWithoutID() {
+        try {
+            Connection conn = DriverManager.getConnection("jdbc:h2:./main");
+            System.out.println("Adding item ...");
+            todoItems.add(new ToDoItem(todoText.getText()));
+            toDoDatabase.insertToDo(conn, todoText.getText());
+            todoText.setText("");
+        } catch(SQLException e){
+
+        }
     }
 
     public void removeItem() {
-     try {
-         Connection conn = DriverManager.getConnection("jdbc:h2:./main");
+        try {
+            Connection conn = DriverManager.getConnection("jdbc:h2:./main");
+//            ToDoItem todoItem = (ToDoItem) todoList.getSelectionModel().getSelectedItem();
 
+            ToDoItem todoItem = todoItems.get(selectedItemIndex);
+//            int selectedItemIndex = todoList.getSelectionModel().getSelectedIndex();
+            ToDoItem id = toDoDatabase.selectToDos(conn).get(selectedItemIndex);
+            System.out.println("Removing " + todoItem.text + " ...");
+            toDoDatabase.deleteToDoByID(conn, id.id);
+//           toDoDatabase.deleteToDo(conn, todoItem.text);
+            todoItems.remove(todoItem);
+        }catch (SQLException e) {
 
-        ToDoItem todoItem = (ToDoItem)todoList.getSelectionModel().getSelectedItem();
-         toDoDatabase.deleteToDo(conn, todoItem.text);
-        System.out.println("Removing " + todoItem.text + " ...");
-        todoItems.remove(todoItem);
-     }catch (SQLException e){
+        }catch( ArrayIndexOutOfBoundsException ex){
 
-     }
+        }
     }
 
     public void toggleItem() {
-        try{ System.out.println("Toggling item ...");
-        ToDoItem todoItem = (ToDoItem)todoList.getSelectionModel().getSelectedItem();
+        try {
+            Connection conn = DriverManager.getConnection("jdbc:h2:./main");
 
-        Connection conn = DriverManager.getConnection("jdbc:h2:./main");
-        if (todoItem != null) {
+            System.out.println("Toggling item ...");
+            selectedItemIndex = todoList.getSelectionModel().getSelectedIndex();
+            ToDoItem todoItem = (ToDoItem) todoList.getSelectionModel().getSelectedItem();
+            ToDoItem id = toDoDatabase.selectToDos(conn).get(selectedItemIndex);
 
-            toDoDatabase.toggleToDo(conn, todoItem.id);
-            todoItem.isDone = !todoItem.isDone;
-            todoList.setItems(null);
-            todoList.setItems(todoItems);
+            if (todoItem != null) {
+                todoItem.isDone = !todoItem.isDone;
+                toDoDatabase.toggleToDo(conn, id.id);
+                todoList.setItems(null);
+                todoList.setItems(todoItems);
+            }
+            todoList.getSelectionModel().select(selectedItemIndex);
 
+        } catch(SQLException e) {
+
+        }catch( ArrayIndexOutOfBoundsException ex){
 
         }
-     todoList.getSelectionModel().select(todoItem);
-        }catch (SQLException e){
-
-        }
-
     }
 
-    public void saveList() {
+    public void saveListToJson() {
         try {
 
             // write JSON
@@ -147,7 +221,7 @@ public class Controller implements Initializable {
         }
     }
 
-    public ToDoItemList retrieveList() {
+    public ToDoItemList retrieveJsonList() {
         try {
 
             Scanner fileScanner = new Scanner(new File(fileName));
@@ -167,39 +241,4 @@ public class Controller implements Initializable {
         }
     }
 
-    public void askForName(){
-        System.out.print("Please enter your name: ");
-        Scanner inputScanner = new Scanner(System.in);
-        username = inputScanner.nextLine();
-
-        if (username != null && !username.isEmpty()) {
-            fileName = username + ".json";
-        }
-
-    }
-
-    public void retrieveFile(){
-        System.out.println("Checking existing list ...");
-        ToDoItemList retrievedList = retrieveList();
-        if (retrievedList != null) {
-            for (ToDoItem item : retrievedList.todoItems) {
-                todoItems.add(item);
-            }
-        }
-
-    }
-
-    public void deleteTodo(){
-        System.out.println("Deleting to do items");
-        try {
-            Connection conn = DriverManager.getConnection("jdbc:h2:./main");
-            toDoDatabase.deleteToDo(conn, todoText.getText());
-
-        }catch(SQLException e){
-
-        }
-
-
-    }
-    
 }
